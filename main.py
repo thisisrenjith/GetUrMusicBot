@@ -1,3 +1,4 @@
+
 import os
 import re
 import time
@@ -19,34 +20,30 @@ from telegram.error import RetryAfter
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
+# Logging Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GetUrMusicBot")
 
+# Configs
 executor = ThreadPoolExecutor()
 DOWNLOAD_DIR = Path("downloads")
 YOUTUBE_REGEX = r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+"
 user_last_command = {}
-command_cooldown = 10
+command_cooldown = 10  # seconds
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "🎵 Welcome to GetUrMusicBot Pro V3!
-"
-        "Send a YouTube link or type a song name.
-"
+        "🎵 Welcome to GetUrMusicBot Pro V3!\n"
+        "Send a YouTube link or type a song name.\n"
         "Use /help or /cancel anytime."
     )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "💡 Usage Guide:
-"
-        "- Send a YouTube link to download MP3
-"
-        "- Type a song name to search
-"
-        "- Use /cancel to stop
-"
+        "💡 Usage Guide:\n"
+        "- Send a YouTube link to download MP3\n"
+        "- Type a song name to search\n"
+        "- Use /cancel to stop\n"
         "- Audio will include title & artist when available"
     )
 
@@ -63,7 +60,7 @@ def clean_old_downloads():
         return
     now = time.time()
     for f in DOWNLOAD_DIR.glob("*.mp3"):
-        if now - f.stat().st_mtime > 1800:
+        if now - f.stat().st_mtime > 1800:  # 30 mins
             f.unlink(missing_ok=True)
 
 def search_youtube(query):
@@ -131,8 +128,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
             except Exception as e:
                 logger.error(traceback.format_exc())
-                await update.message.reply_text(f"❌ Error:
-{traceback.format_exc()}")
+                await update.message.reply_text(f"❌ Error:\n{traceback.format_exc()}")
             finally:
                 try:
                     if mp3_path and mp3_path.exists():
@@ -162,8 +158,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"🚫 Too many requests. Try again in {e.retry_after} sec.")
     except Exception as e:
         logger.error(traceback.format_exc())
-        await update.message.reply_text(f"❌ Error:
-{traceback.format_exc()}")
+        await update.message.reply_text(f"❌ Error:\n{traceback.format_exc()}")
 
 async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -183,8 +178,7 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.edit_message_text("⚠️ This video cannot be downloaded.")
             return
 
-        await query.edit_message_text(f"🎧 Selected: {title}
-⏬ Converting to MP3...")
+        await query.edit_message_text(f"🎯 Selected: {title}\n⏬ Converting to MP3...")
 
         DOWNLOAD_DIR.mkdir(exist_ok=True)
         clean_old_downloads()
@@ -206,8 +200,7 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     except Exception as e:
         logger.error(traceback.format_exc())
-        await query.message.reply_text(f"❌ Error during conversion:
-{traceback.format_exc()}")
+        await query.message.reply_text(f"❌ Error during conversion:\n{traceback.format_exc()}")
     finally:
         try:
             if mp3_path and mp3_path.exists():
