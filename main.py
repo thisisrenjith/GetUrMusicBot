@@ -1,4 +1,3 @@
-
 import os
 import re
 import time
@@ -20,33 +19,36 @@ from telegram.error import RetryAfter
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# Logging Setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("GetUrMusicBot")
 
-# Configs
 executor = ThreadPoolExecutor()
 DOWNLOAD_DIR = Path("downloads")
 YOUTUBE_REGEX = r"(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+"
 user_last_command = {}
-command_cooldown = 10  # seconds
+command_cooldown = 10
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "🎵 Welcome to GetUrMusicBot Pro V3!
-Send a YouTube link or type a song name.
-Use /help or /cancel anytime.")
+"
+        "Send a YouTube link or type a song name.
+"
+        "Use /help or /cancel anytime."
+    )
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💡 Usage Guide:
-- Send a YouTube link to download MP3
+"
+        "- Send a YouTube link to download MP3
 "
         "- Type a song name to search
 "
         "- Use /cancel to stop
 "
-        "- Audio will include title & artist when available")
+        "- Audio will include title & artist when available"
+    )
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
@@ -61,7 +63,7 @@ def clean_old_downloads():
         return
     now = time.time()
     for f in DOWNLOAD_DIR.glob("*.mp3"):
-        if now - f.stat().st_mtime > 1800:  # 30 mins
+        if now - f.stat().st_mtime > 1800:
             f.unlink(missing_ok=True)
 
 def search_youtube(query):
@@ -221,5 +223,5 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_selection))
-    print("🚀 GetUrMusicBot Pro V3 (Debugger 11x Fixes Applied) is running...")
+    print("🚀 GetUrMusicBot Pro V3 is running...")
     app.run_polling()
