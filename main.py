@@ -1,3 +1,4 @@
+
 import os
 import re
 import time
@@ -31,16 +32,26 @@ user_last_command = {}
 command_cooldown = 10  # seconds
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🎵 Welcome to GetUrMusicBot Pro V3!\nSend a YouTube link or type a song name.\nUse /help or /cancel anytime.")
-    await update.message.reply_text("🎵 Welcome to GetUrMusicBot Pro V3!\nSend a YouTube link or type a song name.\nUse /help or /cancel anytime.")
+    await update.message.reply_text(
+        "🎵 Welcome to GetUrMusicBot Pro V3!
+Send a YouTube link or type a song name.
+Use /help or /cancel anytime.")
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("""
-💡 Usage Guide:
+    await update.message.reply_text(
+        "💡 Usage Guide:
 - Send a YouTube link to download MP3
-- Type a song name to search
-- Use /cancel to stop
-- Audio will include title & artist when available
-""")
+"
+        "- Type a song name to search
+"
+        "- Use /cancel to stop
+"
+        "- Audio will include title & artist when available")
+
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await update.message.reply_text("❌ Cancelled current action. You can start again anytime.")
+
 def check_ffmpeg():
     if not shutil.which("ffmpeg"):
         raise EnvironmentError("❌ FFmpeg not installed. Please contact admin.")
@@ -50,7 +61,7 @@ def clean_old_downloads():
         return
     now = time.time()
     for f in DOWNLOAD_DIR.glob("*.mp3"):
-        if now - f.stat().st_mtime > 1800:
+        if now - f.stat().st_mtime > 1800:  # 30 mins
             f.unlink(missing_ok=True)
 
 def search_youtube(query):
@@ -79,11 +90,11 @@ def download_audio(url, safe_title=None):
 
     with YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
-        return [entry for entry in info.get("entries", []) if entry]
-raise Exception("⚠️ Livestreams not supported.")
-title = slugify(info.get("title", "audio"))
-audio_path = next(safe_folder.glob("*.mp3"), None)
-return audio_path, info
+        if info.get("is_live"):
+            raise Exception("⚠️ Livestreams not supported.")
+        title = slugify(info.get("title", "audio"))
+        audio_path = next(safe_folder.glob("*.mp3"), None)
+        return audio_path, info
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
@@ -117,7 +128,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         performer=info.get("uploader", "Unknown Artist")
                     )
             except Exception as e:
-                await update.message.reply_text(f"❌ Error:\n{traceback.format_exc()}")
+                logger.error(traceback.format_exc())
+                await update.message.reply_text(f"❌ Error:
+{traceback.format_exc()}")
             finally:
                 try:
                     if mp3_path and mp3_path.exists():
@@ -146,7 +159,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except RetryAfter as e:
         await update.message.reply_text(f"🚫 Too many requests. Try again in {e.retry_after} sec.")
     except Exception as e:
-        await query.edit_message_text(f"🎧 Selected: {title}\n⏬ Converting to MP3...")
+        logger.error(traceback.format_exc())
+        await update.message.reply_text(f"❌ Error:
+{traceback.format_exc()}")
 
 async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -159,19 +174,52 @@ async def handle_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         video = results[index]
-        url = video.get("webpage_url", None)
+        url = video.get("webpage_url")
         title = video.get("title", "Selected Track")
 
         if not url:
             await query.edit_message_text("⚠️ This video cannot be downloaded.")
             return
-        await query.message.reply_text(f"❌ Error during conversion:\n{traceback.format_exc()}")
+
+        await query.edit_message_text(f"🎧 Selected: {title}
+⏬ Converting to MP3...")
 
         DOWNLOAD_DIR.mkdir(exist_ok=True)
+        clean_old_downloads()
+        mp3_path, info = await context.application.run_in_executor(executor, download_audio, url, slugify(title))
+
+        if not mp3_path or not mp3_path.exists():
+            raise Exception("Download failed.")
+
+        if mp3_path.stat().st_size > 48 * 1024 * 1024:
+            await query.message.reply_text("⚠️ File too large to send.")
+            mp3_path.unlink(missing_ok=True)
+            return
+
+        with mp3_path.open('rb') as f:
+            await query.message.reply_audio(
+                audio=InputFile(f),
+                title=info.get("title", "Audio"),
+                performer=info.get("uploader", "Unknown Artist")
+            )
+    except Exception as e:
+        logger.error(traceback.format_exc())
+        await query.message.reply_text(f"❌ Error during conversion:
+{traceback.format_exc()}")
+    finally:
+        try:
+            if mp3_path and mp3_path.exists():
+                mp3_path.unlink(missing_ok=True)
+                mp3_path.parent.rmdir()
+        except Exception:
+            pass
+
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("cancel", cancel_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(CallbackQueryHandler(handle_selection))
-    print("🚀 GetUrMusicBot Pro V3 (Debugger 2.0 Fixes Applied) is running...")
+    print("🚀 GetUrMusicBot Pro V3 (Debugger 11x Fixes Applied) is running...")
     app.run_polling()
